@@ -20,3 +20,6 @@ sigint_test_1: sigint_test.v1.c
 
 sigint_test_2: sigint_test.v2.c
 	$(BUILD_CMD)
+
+sigint_test_3: sigint_test.v3.c
+	$(BUILD_CMD)
