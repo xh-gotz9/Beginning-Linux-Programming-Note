@@ -23,3 +23,12 @@ sigint_test_2: sigint_test.v2.c
 
 sigint_test_3: sigint_test.v3.c
 	$(BUILD_CMD)
+
+sigint_test_4: sigint_test.v4.c
+	$(BUILD_CMD)
+
+sigint_test_5: sigint_test.v5.c
+	$(BUILD_CMD)
+
+sigint_test_6: sigint_test.v6.c
+	$(BUILD_CMD)

@@ -38,5 +38,74 @@ unsigned int alarm (unsigned int seconds);
 ```C
 #include <signal.h>
 
-int signal(int signum, void (*handler)(int));
+void *signal(int signum, void (*handler)(int));
 ```
+
+`signal` 为信号 `signum` 设置捕获程序 `handler`, 设置成功后返回原有的捕获程序. `signal.h` 为 handler 参数提供了两个处理函数的宏, `SIG_DFL` 可以把信号的捕获程序恢复成原有设定, `SIG_IGN` 可以忽略信号不进行处理.
+
+### sigaction
+```C
+#include <signal.h>
+
+struct sigaction
+{
+    void (*)(int) sa_handler,
+    sigset_t sa_mask,
+    int sa_flags
+}
+
+int sigaction (int signum, struct sigaction *act, struct sigaction *oact);
+```
+
+`sigaction` 的函数调用提供了更细粒度的控制以及更友好的错误处理方式.
+
+`sigaction` 在设置成功时返回0, 失败时返回-1. 如果给出的信号无效或对不可捕获/忽略信号进行设置, 错误变量 `errno` 会被设置为 `EINVAL`. 参数方面使用了 `oact` 参数提供的指针来保存原有的设置. `act` 参数的 `sa_handler` 属性来设置捕获程序.
+
+`struct sigaction` 的 `sa_mask` 属性是一个信号集, 这个信号集用于指定在信号处理时应当阻塞的信号. 如果不进行信号阻塞, [捕获程序可能会被新的信号打断执行](./code/gsigint_test.v3.c), 也有可能造成信号丢失等问题.
+
+## 信号集
+### 基本操作
+```C
+#include <signal.h>
+
+int sigaddset(sigset_t *set, int signo);
+int sigemptyset(sigset_t *set);
+int sigfillset(sigset_t *set);
+int sigdelset(sigset_t *set, int signo);
+
+int sigismember(sigset_t *set, int signo);
+```
+
+以上都是一些简单函数用于信号集相关的操作. 他们成功时返回0, 失败时返回-1并设置 `errno`. 当给定信号无效时, `errno` 被设置为 `EINVAL`. `sigismember` 略有不同, 它用于判断信号是否信号集中, 如果是则返回1, 不是就返回0, 当给定信号无效会返回-1并设置 `errno` 为 `EINVAL`.
+
+### 直接设置屏蔽信号
+```C
+#include <signal.h>
+
+int sigprocmask(int how, const sigset_t *set, sigset_t *oset);
+```
+
+`sigprocmask` 可以直接为程序设置屏蔽信号集, 用户可以选择保留原信号集. 如果操作成功, 返回0. 如果 `how` 参数无效, 返回-1并设置 `errno` 为 `EINVAL`. 它根据 how 参数提供多种模式:
+
+|  arg `how`  | description                               |
+| :---------: | :---------------------------------------- |
+|  SIG_BLOCK  | 将 `set` 中的信号添加到信号屏蔽集中       |
+| SIG_SETMASK | 将被屏蔽的信号设置为 `set` 信号集中的信号 |
+| SIG_UNBLOCK | 将 `set` 信号集中的信号设置为不再阻塞     |
+
+>问: 当一个信号解除屏蔽后, 之前发送的信号是否还存在? 是否会被后续处理?
+>答: 存在, 但多个相同信号会被合为一个. [见代码](./code/sigint_test.v4.c)
+
+### 其他信号集操作
+```C
+#include <signal.h>
+
+int sigpending(sigset_t *set);
+int sigsuspend(const sigset_t *mask);
+```
+
+`sigpending` 用于将处于被阻塞状态的一组信号写到参数 `set` 中. 成功时返回0, 否则返回-1并设置 `errno`.
+
+>`sigpending` 只是检查, 并不会将阻塞的信号移出队列. [示例代码](./code/sigint_test.v5.c)
+
+`sigsuspend` 可以临时将进程当前的屏蔽信号集替换为参数 `mask` 提供的信号集, 并挂起等待一个信号. 如果接收到的信号导致进程终止, 则函数不会返回, 否则返回-1, 并设置 `errno` 为 `EINTR`.
