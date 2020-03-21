@@ -76,3 +76,22 @@ int sem_post (sem_t *sem);
 `sem_post` 对信号量的 value 执行加1操作. 而 `sem_wait` 会对信号量的 value 执行减1操作, 如果信号量的值小于1, 调用将被阻塞, 直到 value 的值被 post 调用增加. 由于 wait 是原子操作, 所以当多个线程正在调用 `sem_wait` 阻塞中时, 信号量被 post一次, 那么仅会有一个线程会成功执行完 wait 操作, 继续执行.
 
 示例代码 见 [thread_semaphone_test.c](./code/thread_semaphone_test.c).
+
+### 互斥量
+```C
+#include <pthread.c>
+
+int pthread_mutex_init (pthread_mutex_t *mutex, const pthread_mutexattr_t *mutex_attr);
+
+int pthread_mutex_destroy (pthread_mutext_t *mutex);
+
+int pthread_mutex_lock (pthread_mutex_t *mutex);
+
+int pthread_mutex_unlock (pthread_mutex_t *mutex);
+```
+
+这些函数成功时返回0, 失败时返回错误代码, 所以需要进行返回值检查.
+
+互斥量使用方式与信号量类似. 要注意的点是, 互斥量默认的类型为 fast, 这一设置会导致尝试对一个已经锁定的互斥量调用 `pthread_mutex_lock` 时阻塞. 而如果一个线程对互斥量锁定成功后再次进行 lock, 那这将会导致死锁. 这可以通过修改互斥量属性来避免, 由于书中并不讨论属性, 所以需要另行查阅资料.
+
+示例代码 见 [thread_mutext_test.c](./code/thread_mutex_test.c)
