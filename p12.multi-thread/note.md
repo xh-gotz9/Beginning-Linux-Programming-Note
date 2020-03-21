@@ -49,3 +49,30 @@ int pthread_join (pthread_t th, void **thread_return);
 `pthread_join` 用于挂起当前线程, 等待指定的线程运行结束. 并且可以通过双重指针 `thread_return` 获取线程的返回值. 函数调用成功返回0, 失败时返回相关错误代码.
 
 示例代码, 见文件 [thread_test_1.c](./code/thread_test_1.c).
+
+## 同步
+同步用于控制线程间的协作. 可以使用 `信号量` 和 `互斥量` 来控制.
+
+### 信号量
+系统提供了两组接口用于实现信号量. 一组是 `POSIX` 的实时扩展, 用于线程. 另一组是 `SystemV` 信号量, 常用于进程间同步(见14章).
+
+```C
+#include <semaphone.h>
+
+int sem_init (sem_t *sem, int pshared, unsigned int value);
+int sem_destroy (sem_t *sem);
+```
+
+`sem_init` 初始化 `sem` 指向的信号量对象, `pshared` 设定信号量的共享范围, `value` 则设定信号量的初始值.
+
+信号量在初始化时根据 `pshared` 的值决定共享范围, 如果 `pshared` 为0, 则在进程的线程间共享. 如果 `pshare` 非0, 那么线程则在进程间共享, 需要将信号量存储在共享内存中(详见14章).
+
+```C
+int sem_wait (sem_t *sem);
+int sem_post (sem_t *sem);
+```
+以上对信号量的操作函数 wait 和 post 都是原子操作. 这意味着多个 wait 和多个 post 的操作是单一有序的, 不会同时发生. 避免了并发修改数据时出现的覆盖问题.
+
+`sem_post` 对信号量的 value 执行加1操作. 而 `sem_wait` 会对信号量的 value 执行减1操作, 如果信号量的值小于1, 调用将被阻塞, 直到 value 的值被 post 调用增加. 由于 wait 是原子操作, 所以当多个线程正在调用 `sem_wait` 阻塞中时, 信号量被 post一次, 那么仅会有一个线程会成功执行完 wait 操作, 继续执行.
+
+示例代码 见 [thread_semaphone_test.c](./code/thread_semaphone_test.c).

@@ -19,3 +19,6 @@ clean:
 
 thread_test_1: thread_test_1.c
 	$(BUILD_CMD_THREAD)
+
+thread_semaphone_test: thread_semaphone_test.c
+	$(BUILD_CMD_THREAD)
