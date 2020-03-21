@@ -35,7 +35,7 @@
 ```C
 #include <pthread.h>
 
-int pthread_create (pthread_t *thread, pthread_arrt_t *attr, void *(*start_routin)(void *), void *arg);
+int pthread_create (pthread_t *thread, pthread_attr_t *attr, void *(*start_routin)(void *), void *arg);
 
 void pthread_exit (void *retval);
 
@@ -95,3 +95,77 @@ int pthread_mutex_unlock (pthread_mutex_t *mutex);
 互斥量使用方式与信号量类似. 要注意的点是, 互斥量默认的类型为 fast, 这一设置会导致尝试对一个已经锁定的互斥量调用 `pthread_mutex_lock` 时阻塞. 而如果一个线程对互斥量锁定成功后再次进行 lock, 那这将会导致死锁. 这可以通过修改互斥量属性来避免, 由于书中并不讨论属性, 所以需要另行查阅资料.
 
 示例代码 见 [thread_mutext_test.c](./code/thread_mutex_test.c)
+
+## 线程的属性
+在 `pthread_create` 的参数中, 有一项是 `pthread_attr_t *attr`, 它用于设置线程的个高级属性.
+
+之前的代码示例中, 如果 main 线程运行结束而不执行 `pthread_join`, 进程就会终止, 子线程会直接随进程终止. 假设我们需要一个线程在 main 函数结束后继续运行而不需要调用 `pthread_join`, 那么就需要创建脱离线程 `detached thread`. 创建脱离线程就需要对创建时的属性进行设置. 
+
+`pthread_attr_t` 属于复合类型, 同样有一系列函数对它进行创建修改操作:
+```C
+#include <pthread.h>
+
+int pthread_attr_init (pthread_attr_t *attr);
+int pthread_attr_destroy (pthread_attr_t *attr);
+```
+这些函数成功时返回0, 失败时返回非0值. destroy 负责对对象进行清理回收, 一旦被清理回收, 这个对象需要重新初始化才可使用.
+
+以下是用于修改属性值的操作函数:
+```C
+#include <pthread.h>
+
+int pthread_attr_setdetachstate (pthread_attr_t *attr, int detachstate);
+int pthread_attr_getdetachstate (pthread_attr_t *attr, int *detachstate);
+
+int pthread_attr_setschedpolicy (pthread_attr_t *attr, int policy);
+int pthread_attr_getschedpolicy (pthread_attr_t *attr, int *policy);
+
+int pthread_attr_setschedparam (pthread_attr_t *attr, const struct sched_param *param);
+int pthread_attr_getschedparam (pthread_attr_t *attr, const struct sched_param *param);
+
+int pthread_attr_setinheritsched (pthread_attr_t *attr, int inherit);
+int pthread_attr_getinheritsched (pthread_attr_t *attr, int *inherit);
+
+int pthread_attr_setscope (pthread_attr_t *attr, int scope);
+int pthread_attr_getscope (pthread_attr_t *attr, int *scope);
+
+int pthread_attr_setstacksize (pthread_attr_t *attr, int stacksize);
+int pthread_attr_getstacksize (pthread_attr_t *attr, int *stacksize);
+```
+
+根据这些函数,可以看到至少有以下属性:
+|    fields    | description                                                                                             |
+| :----------: | :------------------------------------------------------------------------------------------------------ |
+| detachstate  | 线程的脱离状态, 脱离线程会在main线程结束后继续维持进程运行. 根据脱离状态也会导致等待线程的方式发生变化. |
+| schedpolicy  | 线程调度策略.                                                                                           |
+|  schedparam  | 线程调度策略相关的参数.                                                                                 |
+| inheritsched | 参数继承选项. 选择是否继承创建者线程使用的线程属性设置.                                                 |
+|    scope     | 线程调度竞争的范围. 可以选择与系统所有线程竞争调度或与进城内线程竞争调度.                               |
+|  stacksize   | 线程申请的最小内存值(byte), 不可小于 `PTHREAD_STACK_MIN`.                                               |
+
+以上只是这些参数的简单介绍, 详细使用以及更多的参数设置需参考文档.
+
+## 取消线程
+一个线程可以要求另一线程终止. 但线程终止并不是被要求后就强制执行, 在被要求终止方的线程控制权力更大.
+
+```C
+#include <pthread.h>
+
+int pthread_cancel (pthread_t th);
+```
+
+发起申请的线程调用 `pthread_cancel`, 对指定线程发出终止请求. 如果符合被请求方线程的设置, 那么线程将会终止.
+
+```C
+#include <pthread.h>
+
+int pthread_setcancelstate (int state, int *oldstate);
+
+int pthread_setcanceltype (int type, int *oldtype);
+```
+
+在被请求终止方的线程, 首先要根据 `cancelstate` 决定是否可以被终止, 如果当前线程设置为可以被终止, 那么再根据 `canceltype` 的值在适当的时候停止线程. 详情见文档.
+
+根据 `canceltype` 决定的点来停止线程可能会让线程的行为脱离掌控. 如果需要手动检查, 可以使用 `pthread_testcancel`, 这个函数会检查是否接收到取消请求, 如果有, 则直接终止线程.
+
+如果对一个被取消的线程调用 `pthread_join`, 根据文档, `*retval` 的值会是 `PTHREAD_CANCELED`.
