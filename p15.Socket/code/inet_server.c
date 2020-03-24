@@ -42,13 +42,15 @@ int main(int argc, char const *argv[])
             exit(EXIT_FAILURE);
         }
 
-        stpcpy(buf, "welcome to connect server!\n");
+        strcpy(buf, "welcome to connect server!\n");
         write(clientfd, buf, strlen(buf));
         strcpy(buf, "bye-bye!\n");
         write(clientfd, buf, strlen(buf));
 
         printf("close socket!\n");
+#ifdef _SOCK_SHUTDOWN
         shutdown(clientfd, SHUT_RDWR);
+#endif
         close(clientfd);
     }
 
