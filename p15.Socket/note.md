@@ -141,3 +141,69 @@ int connect (int socket, const struct sockaddr *address, size_t address_len);
 ssize_t recv (int sockfd, void *buf, size_t len, int flags);
 ssize_t send (int sockfd, const void *buf, size_t len, int flags);
 ```
+
+### 设置非阻塞模式
+```C
+int flag = fcntl (socket, F_GETFL, 0);
+fcntl (socket F_SETFL, O_NONBLOCK | flag);
+```
+设置非阻模式后, 原本会发生阻塞的fd操作会变为非阻塞模式.
+
+## 套接字选项
+可以使用 `setsockopt` 为套接字设置各种属性来改变它们的行为.
+```C
+#include <sys/socket.h>
+
+int setsockopt (int socket, int level, int option_name, const void *option_value, size_t option_len);
+```
+
+`level` 的参数的选项参考 [GUN文档](https://www.gnu.org/software/libc/manual/html_node/Socket_002dLevel-Options.html)
+
+重点常用 `level`
+|    level     | description                                                                                                   |
+| :----------: | :------------------------------------------------------------------------------------------------------------ |
+| SO_KEEPALIVE | 下层协议是否需要定期向连接发送消息, 如果消息发送失败, 则连接中断. 选项值是 `int` 类型, 一个非0值表示开启选项. |
+| SO_BROADCAST | socket 的**数据报**是否允许被广播. 选项值是 `int` 类型, 非0值表示允许.                                        |
+|  SO_RCVBUF   | socket 缓冲区的大小. 选项值是 `size_t`.                                                                       |
+
+
+## 多客户的处理方式 select
+`select` 调用可以对多个文件描述符进行管理.
+
+```C
+#include <sys/types.h>
+#include <sys/time.h>
+
+int select (int nfds, fd_set, *readfds, fd_set *write_fds, fd_set *errorfds, struct timeval *timeout);
+```
+关于 `nfds`, 文档中提到, `nfds` 必须是 `readfds`, `write_fds`, `errorfds` 中最大的fd值加1. 但是 glibc 中 `fd_set` 是固定长度的数据结构, `FD_SETSIZE` 被设定为 1024. `fd_set` 的操作受其限制, 最大的可监视fd值为1023. 如果想要监视超过 1023 以上的fd, 可以用 `poll` 调用替代.
+
+`fd_set` 是一个用于存储一个或多个 fd 的数据结构类型, 有配套的设置函数:
+```C
+#include <sys/types.h>
+#include <sys/time.h>
+
+void FD_ZERO (fd_set *fdset);
+void FD_CLR (int fd, fd_set *fdset); // 从 fdset 中删除 fd
+void FD_SET (int fd, fd_set *fdset);
+void FD_ISSET (int fd, fd_set *fdset);
+```
+
+`select` 可以设置一个定时器, 根据给出的时间 `timeout`, 在超时后返回, 避免阻塞过久. `timeout` 的结构体 `timeval` 如下:
+```C
+struct timeval {
+     time_t tv_sec; /* seconds */
+     long tv_usec; /* microseconds */
+}
+```
+
+`select` 调用会在 `readfds` 中有fd可读, `writefds` 中有fd可写, `errorfds` 中有fd发生错误时返回, 或者在阻塞超过 `timeout` 设定的时间后返回. 如果没有提供 `timeval` 参数, 那么 `select` 调用会一直阻塞.
+
+### select 的使用流程
+具体实现见代码 [inet_server_select](./code/inet_server_select.c).
+
+1. 创建 `fd_set`. 可以创建多个 `fd_set` 用于侦听读/写/错误三种问题.
+2. 调用 `select` 等待发生事件.
+3. 发生事件后返回, 轮询检查 fd_set 中的fd是否有相应事件发生, 进行处理.
+
+可以看出, 第3步需要做非常多的额外工作, 而且加上 `fd_set` 的限制, `select` 看起来并不那么好用.
