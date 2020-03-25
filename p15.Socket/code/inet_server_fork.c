@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <unistd.h>
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -29,6 +30,8 @@ int main(int argc, char const *argv[])
 
     listen(server_sock, 128);
 
+    signal(SIGCHLD, SIG_IGN);
+
     int clientfd;
     struct sockaddr_in client_addr;
     int client_len;
@@ -43,16 +46,26 @@ int main(int argc, char const *argv[])
             exit(EXIT_FAILURE);
         }
 
-        strcpy(buf, "welcome to connect server!\n");
-        write(clientfd, buf, strlen(buf));
-        strcpy(buf, "bye-bye!\n");
-        write(clientfd, buf, strlen(buf));
+        if (fork() == 0)
+        {
+            // 子进程
+            strcpy(buf, "welcome to connect server!\n");
+            write(clientfd, buf, strlen(buf));
+            strcpy(buf, "bye-bye!\n");
+            write(clientfd, buf, strlen(buf));
 
-        printf("close socket!\n");
+            printf("close socket!\n");
 #ifdef _SOCK_SHUTDOWN
-        shutdown(clientfd, SHUT_RDWR);
+            shutdown(clientfd, SHUT_RDWR);
 #endif
-        // close(clientfd);
+            close(clientfd);
+            exit(EXIT_SUCCESS);
+        }
+        else
+        {
+            // 父进程
+            close(clientfd);
+        }
     }
 
     return 0;
