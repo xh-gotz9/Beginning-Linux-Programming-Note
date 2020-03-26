@@ -31,8 +31,6 @@ int main(int argc, char const *argv[])
 
     listen(server_sock, 128);
 
-    signal(SIGCHLD, SIG_IGN);
-
     char buf[BUFSIZ + 1] = {[BUFSIZ] = 0}; // 最后一位初始化为0
 
     fd_set read_fds, write_fds;

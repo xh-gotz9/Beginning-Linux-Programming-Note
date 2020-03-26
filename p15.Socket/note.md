@@ -81,7 +81,7 @@ struct in_addr
 
 IPv4 地址是由四个字节组成一个32位的值, 所以使用了 `unsigned long int`.
 
-#### 命名套接字
+### 命名套接字
 ```C
 #include <sys/socket.h>
 
@@ -104,7 +104,7 @@ int bind (int socket, const strcut sockaddr *address, size_t address_len);
 |        EACCESS        | 因为权限不足, 不能创建文件系统中的路径名 (`AF_UNIX`) |
 | ENOTDIR, ENAMETOOLING | 表明选择的文件名不符合要求 (`AF_UNIX`)               |
 
-#### 创建套接字队列
+### 创建套接字队列
 为了能够在套接字上接受进入的连接, 服务器程序必须创建一个队列来保存未处理的请求. 它用 `listen` 系统调用来完成这一工作.
 ```C
 #include <sys/socket.h>
@@ -114,7 +114,7 @@ int listen (int socket, int backlog);
 
 `backlog` 对套接字队列长度进行限制, 超过数量的连接将被拒绝. `listen` 函数成功时返回0, 失败时返回-1, 错误代码包括 `EBADF`, `EINVAL` 和 `ENOTSOCK`.
 
-#### 接受连接
+### 接受连接
 一旦服务器创并命名套接字后, 就可以通过 `accept` 系统调用来等待客户建立对该套接字的连接.
 ```C
 #include <sys/socket.h>
@@ -124,8 +124,7 @@ int accept (int socket, struct sockaddr *address. size_t *address_len);
 
 `accept` 系统调用只有当有客户程序试图连接到由 socket 参数指定的套接字上时才返回. 
 
-#### 请求连接
-
+### 请求连接
 ```C
 #include <sys/socket.h>
 
@@ -207,3 +206,46 @@ struct timeval {
 3. 发生事件后返回, 轮询检查 fd_set 中的fd是否有相应事件发生, 进行处理.
 
 可以看出, 第3步需要做非常多的额外工作, 而且加上 `fd_set` 的限制, `select` 看起来并不那么好用.
+
+## poll
+在 `select` 文档中提到, 如果需要监视的fd大于1023, 需要使用 `poll`. 
+
+```C
+#include <poll.h>
+
+struct pollfd {
+     int fd;
+     short events;
+     short revents;
+}
+
+int poll (struct pollfd *fds, nfds_t nfds, int timeout);
+```
+
+`poll` 需要传入 `pollfd` 的数组, 由 `fds` 指向数组头部, `nfds` 指定了数组长度. `poll` 相比 `select` 提供了更简单的超时设置方式, 直接指定超时上限为 `timeout` 毫秒.
+
+`pollfd` 结构体中, `fd` 是要监视的fd值, `events` 作为输入值, `revents` 对监视结果进行返回. 如果 `fd` 值为负数, `events` 将被忽略, `revents` 将返回 0. 
+
+`events` 是一个 bit mask 值, `revents` 可能的可返回值包含 `events` 的值以及 `POLLHUP`, `POLLER`, `POLLNVAL`. `events` 的值定义在 `poll.h` 中:
+
+|   events   | description                                                                         |
+| :--------: | :---------------------------------------------------------------------------------- |
+|   POLLIN   | 有数据可读.                                                                         |
+|  POLLPRI   | 可能有带外数据.                                                                     |
+|  POLLOUT   | 可写数据, 虽然如果写入比 socket 缓冲区大的数据仍会造成阻塞. (除非设置了非阻塞模式). |
+| POLLRDHUP  | 流 socket 对端关闭了连接或者停止了写入连接.                                         |
+| POLLRDNORM | 等效于 `POLLIN`                                                                     |
+| POLLRDBAND | 有优先数据可读                                                                      |
+| POLLWRNORM | 等效于 `POLLWR`                                                                     |
+| POLLWRBAND | 可写入优先数据                                                                      |
+|  POLLMSG   | 虽然Linux定义了这一 event, 但不要使用                                               |
+|  POLLERR   | 发生了错误条件, 这个 event 仅写入 `revents`. 也可表示一个fd的读取端已经关闭.        |
+|  POLLHUP   | 挂起, 仅写入 `revents`. 表示关闭了连接的一端, 后续的读取在读完已到达数据后会返回零. |
+|  POLLNVAL  | 无效请求, 仅写入 `revents`. fd 没有打开.                                            |
+
+### poll 的工作流程
+1. 为 fd 初始化 `pollfd` 结构体, 设置 fd 感兴趣的事件.
+2. 创建 `pollfd` 数组将 `pollfd` 结构体填入.
+3. 循环调用 `poll`, 等待事件发生.
+4. 发生事件后, 根据 `poll` 的返回值确定产生事件的fd数量, 遍历 `pollfd` 依次检查.
+5. 对有事件发生的 fd 执行相应的操作.

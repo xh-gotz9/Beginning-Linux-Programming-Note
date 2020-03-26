@@ -15,7 +15,7 @@ executable:
 clean:
 	rm -rf $(BUILD_DIR)
 
-servers: buildDir inet_server inet_server_fork inet_server_select inet_server_sock_shutdown inet_client_read_notifyserver
+servers: buildDir inet_server inet_server_fork inet_server_select inet_server_poll inet_server_sock_shutdown inet_client_read_notifyserver
 
 inet_server: inet_server.c
 	$(BUILD_CMD)
@@ -27,6 +27,9 @@ inet_server_fork: inet_server_fork.c
 	$(BUILD_CMD)
 
 inet_server_select: inet_server_select.c
+	$(BUILD_CMD)
+
+inet_server_poll: inet_server_poll.c
 	$(BUILD_CMD)
 
 clients: buildDir inet_client inet_client_read inet_client_read_keepalive inet_client_read_noblock inet_client_read_notifyserver inet_client_recv

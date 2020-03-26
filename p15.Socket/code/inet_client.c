@@ -67,11 +67,11 @@ read_socket:
 #else
         printf("recv[len=%d]: ", nbytes);
 #endif
-        fflush(stdout);
 
-        write(1, buf, nbytes);
+        fwrite(buf, sizeof(char), nbytes, stdout);
         sleep(1);
     }
+    fwrite("\n", 1, 1, stdout);
 
 #ifdef _NON_BLOCK
     // 在使用 read 读取非阻塞模式 socket 会被阻塞时, 会发生错误并返回
