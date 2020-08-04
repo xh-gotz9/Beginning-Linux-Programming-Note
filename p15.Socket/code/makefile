@@ -32,6 +32,9 @@ inet_server_select: inet_server_select.c
 inet_server_poll: inet_server_poll.c
 	$(BUILD_CMD)
 
+inet_server_epoll: inet_server_epoll.c
+	$(BUILD_CMD)
+
 clients: buildDir inet_client inet_client_read inet_client_read_keepalive inet_client_read_noblock inet_client_read_notifyserver inet_client_recv
 
 inet_client_recv: inet_client.c
