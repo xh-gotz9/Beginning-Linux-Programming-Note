@@ -249,3 +249,39 @@ int poll (struct pollfd *fds, nfds_t nfds, int timeout);
 3. 循环调用 `poll`, 等待事件发生.
 4. 发生事件后, 根据 `poll` 的返回值确定产生事件的fd数量, 遍历 `pollfd` 依次检查.
 5. 对有事件发生的 fd 执行相应的操作.
+
+## epoll
+`epoll` API 的功能与 `poll` 类似: 监听多个文件描述符的 I/O 可用状态. epoll API 可以使用 边缘触发 (edge-triggered) 或 等级触发 (level-triggered) 接口, 并且支持监视大量文件描述符.
+
+`epoll` API 的核心概念是 `epoll` 对象, 一个内核数据结构. 从用户空间看来, 可以理解为两个 list:
+- `interest list`, 也被称作 `epoll` set: epoll 感兴趣并且进行监听的文件描述符集合.
+- `ready list`: 已经准备好进行 I/O 的文件描述符的集合. `ready list` 是 `interest list` 的子集 (更准确地说, 是 `interest list` 中文件描述符的一组引用). `ready list` 是由内核动态填充的 I/O 可用文件描述符
+
+以下的系统调用用于创建和管理 epoll 对象:
+- `epoll_create` 创建一个新的 epoll 对象, 并且返回一个指向该对象的文件描述符. (`epoll_create1` 继承了 `epoll_create` 的功能)
+
+- 通过 `epoll_ctl` 注册感兴趣的文件描述符, 会将其加入 epoll 对象的 interest list 中.
+
+- `epoll_wait`, 等待 I/O 事件, 如果当前没有 I/O 事件则会阻塞. 可以理解为从 epoll 对象中获取 ready list 的数据.
+
+### 等级触发 (level-triggered) 和边缘触发 (edge-triggered)
+epoll 事件分发接口可以以 ET 或者 LT 方式运作, 以下是两者的区别.
+
+首先假设以下场景:
+1. epoll 对象中注册了文件描述符 rfd 是管道 (`pipe`) 的 read 端.
+2. 该 pipe 的 write 端写入了 2kB 的数据.
+3. 调用 `epoll_wait` 返回, rfd 会作为可用的文件描述符返回.
+4. 从 rfd 读取了 1kB 的数据.
+5. 调用 `epoll_wait`.
+
+如果 rfd 在添加到 epoll 对象中时使用了 `EPOLLET` (edge-triggered) flag, 在第 5 步调用 `epoll_wait` 的时候大概会挂起, 尽管 rfd 中还有数据没可读. 这时远端可能还会在等待自己发送的请求的响应. 这样的原因是 ET 模式仅仅在发生变化时才产生事件. 所以第五步调用后需要 rfd 被写入新的数据, 从挂起中恢复. 在上面的例子里, 因为在步骤 2 中写入了数据, rfd 会产生一个事件, 而这个事件在步骤 3 中被处理. 由于在步骤 4 中的读取操作不会消耗全部缓冲区数据，步骤 5 中对 `epoll_wait` 的调用可能会无限期地阻塞.
+
+一个使用 ET 模式的应用, 应该使用非阻塞的文件描述符来避免执行阻塞的读写操作, 从而导致 "饿死" 多文件描述符处理任务 (无法分配到 CPU 时间). 以下是使用 ET 触发模式的建议:
+- 使用非阻塞的文件描述符.
+- 在 read/write 操作返回 `EAGAIN` 后等待.
+
+作为对比, LT, 等级触发模式是作为默认模式, 在未指定 ET 模式 flag 时使用. epoll 可以看作简单快速的 `poll` 调用, 并且不管在哪里都可以代替 `poll` 使用.
+
+即使是 ET 模式的 epoll, 也可能因为收到多块数据而产生多个事件, epoll 可以使用 `EPOLLONESHOT` flag 来设置 epoll 的行为, 使 `epoll_wait` 返回文件描述符后将其禁用. 在使用设置了 `EPOLLONESHOT` 的文件描述符时, 调用方需要调用 `epoll_ctl` 执行 `EPOLL_CTL_MOD` 操作来重装/恢复该文件描述符.
+
+在多线程环境 (或者多进程环境, 子进程由 fork 调用继承了父进程的 epoll) 对同一个 epoll 对象调用 `epoll_wait` 的情况, 仅会有一个线程 (或进程) 从 `epoll_wait` 调用的挂起中唤醒.
