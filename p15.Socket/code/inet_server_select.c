@@ -1,3 +1,5 @@
+#include "commons.h"
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
@@ -21,6 +23,12 @@ int main(int argc, char const *argv[])
     addr.sin_port = htons(3000);
 
     server_sock = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (set_non_blocking(server_sock) == -1)
+    {
+        perror("set fd non-blocking");
+        exit(EXIT_FAILURE);
+    }
 
     result = bind(server_sock, (struct sockaddr *)&addr, sizeof(addr));
     if (result == -1)
@@ -89,13 +97,22 @@ int main(int argc, char const *argv[])
                 {
                     // 处理普通 client socket
                     int nbytes = read(fd, buf, BUFSIZ);
-                    if (nbytes == 0)
+                    if (nbytes == -1)
                     {
-                        // 读取到 0 数据. 说明出现错误, 关闭 socket
-                        close(fd);
+                        perror("read failed");
                         FD_CLR(fd, &read_fds);
                         FD_CLR(fd, &write_fds);
-                        printf("remove client fd[%d]\n", fd);
+                        close(fd);
+                        fprintf(stdout, "remove client fd[%d]\n", fd);
+                    }
+                    else if (nbytes == 0)
+                    {
+                        // 读取到 0 数据. 说明出现错误, 关闭 socket
+                        fprintf(stdout, "remote peer closed\n");
+                        FD_CLR(fd, &read_fds);
+                        FD_CLR(fd, &write_fds);
+                        close(fd);
+                        fprintf(stdout, "remove client fd[%d]\n", fd);
                     }
                     else
                     {
