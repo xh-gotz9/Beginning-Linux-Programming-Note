@@ -20,7 +20,7 @@ int main(int argc, char const *argv[])
 
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = inet_addr("127.0.0.1");
-    address.sin_port = 3000;
+    address.sin_port = htons(3000);
 
     result = connect(sockfd, (struct sockaddr *)&address, sizeof(address));
     if (result == -1)

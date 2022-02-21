@@ -17,7 +17,7 @@ int main(int argc, char const *argv[])
 
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    addr.sin_port = 3000;
+    addr.sin_port = htons(3000);
 
     server_sock = socket(AF_INET, SOCK_STREAM, 0);
 
