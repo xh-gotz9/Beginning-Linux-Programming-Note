@@ -1,4 +1,7 @@
 #define _GNU_SOURCE
+
+#include "commons.h"
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
@@ -13,25 +16,6 @@
 #include <sys/epoll.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
-
-int set_non_block(int fd)
-{
-    int flags, s;
-    flags = fcntl(fd, F_GETFL, 0);
-    if (flags == -1)
-    {
-        perror("fcntl");
-        return -1;
-    }
-
-    flags |= O_NONBLOCK;
-    s = fcntl(fd, F_SETFL, flags);
-    if (s == -1)
-    {
-        perror("fcntl");
-        return -1;
-    }
-}
 
 int main(int argc, char const *argv[])
 {
@@ -49,7 +33,11 @@ int main(int argc, char const *argv[])
     event.events = EPOLLIN | EPOLLET;
 
     // server_sock 调整为非阻塞模式
-    set_non_block(server_sock);
+    if (set_non_block(server_sock) == -1)
+    {
+        perror("set fd non-blocking failed");
+        exit(EXIT_FAILURE);
+    }
 
     // 绑定地址
     struct sockaddr_in addr;
@@ -126,7 +114,11 @@ int main(int argc, char const *argv[])
                     }
 
                     // 设置非阻塞模式
-                    set_non_block(accept_fd);
+                    if (set_non_block(accept_fd) == -1)
+                    {
+                        perror("client fd set non-blocking failed");
+                        close(accept_fd);
+                    }
 
                     // 添加 fd 到 epoll
                     event.data.fd = accept_fd;
