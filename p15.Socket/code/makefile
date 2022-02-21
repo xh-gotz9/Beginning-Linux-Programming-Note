@@ -51,3 +51,9 @@ inet_client_read_notifyserver:inet_client.c
 
 inet_client_read_noblock: inet_client.c
 	$(BUILD_CMD) -D_OP_READ -D_NON_BLOCK
+
+thundering_herd_accept: thundering_herd_accept.c
+	$(BUILD_CMD)
+
+thundering_herd_select: thundering_herd_select.c
+	$(BUILD_CMD)
