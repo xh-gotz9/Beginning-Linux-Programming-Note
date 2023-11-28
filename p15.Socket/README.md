@@ -251,7 +251,7 @@ int poll (struct pollfd *fds, nfds_t nfds, int timeout);
 5. 对有事件发生的 fd 执行相应的操作.
 
 ## epoll
-`epoll` API 的功能与 `poll` 类似: 监听多个文件描述符的 I/O 可用状态. epoll API 可以使用 边缘触发 (edge-triggered) 或 等级触发 (level-triggered) 接口, 并且支持监视大量文件描述符.
+`epoll` API 的功能与 `poll` 类似: 监听多个文件描述符的 I/O 可用状态. epoll API 可以使用 边缘触发 (edge-triggered) 或 水平触发 (level-triggered) 接口, 并且支持监视大量文件描述符.
 
 `epoll` API 的核心概念是 `epoll` 对象, 一个内核数据结构. 从用户空间看来, 可以理解为两个 list:
 - `interest list`, 也被称作 `epoll` set: epoll 感兴趣并且进行监听的文件描述符集合.
@@ -264,7 +264,7 @@ int poll (struct pollfd *fds, nfds_t nfds, int timeout);
 
 - `epoll_wait`, 等待 I/O 事件, 如果当前没有 I/O 事件则会阻塞. 可以理解为从 epoll 对象中获取 ready list 的数据.
 
-### 等级触发 (level-triggered) 和边缘触发 (edge-triggered)
+### 水平触发 (level-triggered) 和边缘触发 (edge-triggered)
 epoll 事件分发接口可以以 ET 或者 LT 方式运作, 以下是两者的区别.
 
 首先假设以下场景:
@@ -280,7 +280,7 @@ epoll 事件分发接口可以以 ET 或者 LT 方式运作, 以下是两者的�
 - 使用非阻塞的文件描述符.
 - 在 read/write 操作返回 `EAGAIN` 后等待.
 
-作为对比, LT, 等级触发模式是作为默认模式, 在未指定 ET 模式 flag 时使用. epoll 可以看作简单快速的 `poll` 调用, 并且不管在哪里都可以代替 `poll` 使用.
+作为对比, LT, 水平触发模式是作为默认模式, 在未指定 ET 模式 flag 时使用. epoll 可以看作简单快速的 `poll` 调用, 并且不管在哪里都可以代替 `poll` 使用.
 
 即使是 ET 模式的 epoll, 也可能因为收到多块数据而产生多个事件, epoll 可以使用 `EPOLLONESHOT` flag 来设置 epoll 的行为, 使 `epoll_wait` 返回文件描述符后将其禁用. 在使用设置了 `EPOLLONESHOT` 的文件描述符时, 调用方需要调用 `epoll_ctl` 执行 `EPOLL_CTL_MOD` 操作来重装/恢复该文件描述符.
 
